@@ -9,7 +9,7 @@ const { Map } = com.here.android.mpa.mapping;
 
 export class HereMaps extends Common {
     // added for TypeScript intellisense.
-    nativeView: any;
+    nativeView: org.nativescript.widgets.ContentLayout;
 
     /**
      * Creates map fragment.
