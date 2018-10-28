@@ -1,21 +1,54 @@
-import { Common } from './here-maps.common';
+import { HereMapsBase } from './here-maps.common';
 
-declare const com: any;
+declare const android, com: any;
 
-const { OnEngineInitListener, GeoCoordinate } = com.here.android.mpa.common;
-const { MapFragment } = com.here.android.mpa.mapping;
-const { ContentLayout } = org.nativescript.widgets;
-const { Map } = com.here.android.mpa.mapping;
+export class HereMaps extends HereMapsBase {
+    private _mapFragment: any;
+    private _pendingPositionUpdate: boolean;
 
-export class HereMaps extends Common {
-    // added for TypeScript intellisense.
-    nativeView: org.nativescript.widgets.ContentLayout;
+    /**
+     * Creates new native map.
+     */
+    public createNativeView(): Object {
+        const nativeView = new android.widget.FrameLayout(this._context);
+        const id = android.view.View.generateViewId();
+        
+        nativeView.setId(id);
+        this.initMap(id);
+
+        return nativeView;
+    }
+
+    private initMap(id: number): void {
+        this._mapFragment = this.getMapFragment(id);
+
+        if (this._mapFragment === null) return;
+
+        this._mapFragment.init(this._context, 
+            new com.here.android.mpa.common.OnEngineInitListener({
+                onEngineInitializationCompleted: (error) => {
+                    if (error === com.here.android.mpa.common.OnEngineInitListener.Error.NONE) {
+                        // retrieve a reference of the map from the map fragment
+                        const owner = new WeakRef(this).get();
+                        owner._map = this._mapFragment.getMap();
+                        owner.addGestureListeners();
+                        owner.updatePosition();
+                        owner.notifyMapReady();
+                    } else {
+                        android.widget.Toast.makeText(this._context,
+                            `ERROR: Cannot initialize Map with error ${error}`,
+                            android.widget.Toast.LENGTH_LONG).show();
+                    }
+                }
+            }
+        ));
+    }
 
     /**
      * Creates map fragment.
      */
     private getMapFragment(id: number) {
-        let mapFragment = new MapFragment();
+        let mapFragment = new com.here.android.mpa.mapping.MapFragment();
         let transaction = this._context.getFragmentManager().beginTransaction();
 
         transaction.add(id, mapFragment);
@@ -24,31 +57,89 @@ export class HereMaps extends Common {
         return mapFragment;
     }
 
-    /**
-     * Creates new native map.
-     */
-    public createNativeView(): Object {
-        const nativeView = new ContentLayout(this._context);
-        const id = android.view.View.generateViewId();
-        const mapFragment = this.getMapFragment(id);
+    addGestureListeners() {
+        this._mapFragment.getMapGesture().addOnGestureListener(
+            new com.here.android.mpa.mapping.MapGesture.OnGestureListener({
+                onPanStart: (): void => {
+                    this.notifyEvent(HereMapsBase.panStartEvent);
+                },
+                onPanEnd: (): void => {
+                    this.notifyEvent(HereMapsBase.panEndEvent);
+                },
+                onMultiFingerManipulationStart: (): void => {
+                    this.notifyEvent(HereMapsBase.multiFingerManipulationStartEvent);
+                },
+                onMultiFingerManipulationEnd: (): void => {
+                    this.notifyEvent(HereMapsBase.multiFingerManipulationEndEvent);
+                },
+                onMapObjectsSelected: (objects: any[]): boolean => {
+                    this.notifyEvent(HereMapsBase.mapObjectsSelectedEvent);
+                    return false;
+                },
+                onTapEvent: (p: android.graphics.PointF): boolean => {
+                    this.notifyEvent(HereMapsBase.tapEvent);
+                    return false;
+                },
+                onDoubleTapEvent: (p: android.graphics.PointF): boolean => {
+                    this.notifyEvent(HereMapsBase.doubleTapEvent);
+                    return false;
+                },
+                onPinchLocked: (): void => {
+                    this.notifyEvent(HereMapsBase.pinchLockedEvent);
+                },
+                onPinchZoomEvent: (scaleFactor: number, 
+                    p: android.graphics.PointF): boolean => {
+                    this.notifyEvent(HereMapsBase.pinchZoomEvent);
+                    return false;
+                },
+                onRotateLocked: (): void => {
+                    this.notifyEvent(HereMapsBase.rotateLockedEvent);
+                },
+                onRotateEvent: (rotateAngle: number): boolean => {
+                    this.notifyEvent(HereMapsBase.rotateEvent);
+                    return false;
+                },
+                onTiltEvent: (angle: number): boolean => {
+                    this.notifyEvent(HereMapsBase.tiltEvent);
+                    return false;
+                },
+                onLongPressEvent: (p: android.graphics.PointF): boolean => {
+                    this.notifyEvent(HereMapsBase.longPressEvent);
+                    return false;
+                },
+                onLongPressRelease: (): void => {
+                    this.notifyEvent(HereMapsBase.longPressReleaseEvent);
+                },
+                onTwoFingerTapEvent: (p: android.graphics.PointF): boolean => {
+                    this.notifyEvent(HereMapsBase.twoFingerTapEvent);
+                    return false;
+                },
+            }),
+        );
+    }
 
-        nativeView.setId(id);
-        mapFragment.init(this._context, new OnEngineInitListener({
-                onEngineInitializationCompleted(error) {
-                    if (error === OnEngineInitListener.Error.NONE) {
-                        // retrieve a reference of the map from the map fragment
-                        const map = mapFragment.getMap();
+    updatePosition() {
+        if (!this._map) {
+            this._pendingPositionUpdate = true;
+            return;
+        }
 
-                        map.setCenter(new GeoCoordinate(49.5535, 25.5948, 0.0), Map.Animation.NONE);
-                        map.setZoomLevel(15);
-                    } else {
-                        console.error("ERROR: Cannot initialize Map Fragment");
-                    }
-                }
-            }
-        ));
-        
-        return nativeView;
+        this._pendingPositionUpdate = false;
+
+        if (!isNaN(this.latitude) && !isNaN(this.longitude)) {
+            this._map.setCenter(
+                new com.here.android.mpa.common.GeoCoordinate(
+                    Number(this.latitude), 
+                    Number(this.longitude), 
+                    0.0,
+                ), 
+                com.here.android.mpa.mapping.Map.Animation.NONE,
+            );
+        }
+
+        if (!isNaN(this.zoom)) {
+            this._map.setZoomLevel(Number(this.zoom));
+        }
     }
 
     /**
@@ -77,3 +168,4 @@ export class HereMaps extends Common {
         super.disposeNativeView();
     }
 }
+

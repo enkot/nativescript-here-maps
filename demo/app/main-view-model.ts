@@ -7,6 +7,10 @@ export class HelloWorldModel extends Observable {
   constructor() {
     super();
 
-    this.hereMaps = new HereMaps();
+    // this.hereMaps = new HereMaps(gestureListeners);
+  }
+
+  public get hereMap() {
+    return this.hereMaps;
   }
 }

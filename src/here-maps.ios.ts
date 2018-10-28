@@ -1,5 +1,5 @@
-import { Common } from './here-maps.common';
+import { HereMapsBase } from './here-maps.common';
 
-export class HereMaps extends Common {
-
+export class HereMaps extends HereMapsBase {
+    updatePosition() {}
 }

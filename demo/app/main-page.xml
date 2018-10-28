@@ -3,5 +3,10 @@
   <StackLayout class="p-20">
     Hello
   </StackLayout>
-  <ui:HereMaps/>
+  <ui:HereMaps 
+    latitude="49.5535"
+    longitude="25.5948"
+    zoom="15"
+    panStart="onPanStart"
+    mapReady="onMapReady"/>
 </Page>
